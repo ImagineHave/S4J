@@ -3,25 +3,16 @@ package imagine_have.xyz.helloworld;
 import android.content.Context;
 import android.content.Intent;
 import android.hardware.Sensor;
-import android.hardware.SensorListener;
 import android.hardware.SensorManager;
-import android.icu.text.StringSearch;
-import android.os.Environment;
-import android.support.v7.app.AppCompatActivity;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
-import android.view.View;
-import android.widget.EditText;
+import android.support.v7.app.AppCompatActivity;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Random;
+import imagine_have.xyz.http.DownloadCallback;
+import imagine_have.xyz.http.NetworkFragment;
 
-public class MainActivity extends AppCompatActivity {
+public class MainActivity extends AppCompatActivity implements DownloadCallback {
     public final static String EXTRA_MESSAGE = "com.example.myfirstapp.MESSAGE";
 
     //shake detection
@@ -29,10 +20,20 @@ public class MainActivity extends AppCompatActivity {
     private Sensor mAccelerometer;
     private ShakeDetector mShakeDetector;
 
+    // Boolean telling us whether a download is in progress, so we don't trigger overlapping
+    // downloads with consecutive button clicks.
+    private boolean mDownloading = false;
+
+    // Keep a reference to the NetworkFragment which owns the AsyncTask object
+    // that is used to execute network ops.
+    private NetworkFragment mNetworkFragment;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.google.com");
 
         // ShakeDetector initialization
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
@@ -54,38 +55,25 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void handleShakeEvent(int count) {
-        String message = getBibleString();
-        Intent intent = new Intent(this, DisplayMessageActivity.class);
-        intent.putExtra(EXTRA_MESSAGE, message);
-        startActivity(intent);
+
+        // start Download
+        startDownload();
     }
 
-    public String getBibleString() {
-        List<String> text = new ArrayList<>();
-        BufferedReader reader = null;
-        try {
-            reader = new BufferedReader(
-                    new InputStreamReader(getAssets().open("KingJames.txt"), "UTF-8"));
-
-            // do reading, usually loop until end of file reading
-            String mLine;
-            while ((mLine = reader.readLine()) != null) {
-                if(!mLine.trim().isEmpty()) {
-                    text.add(mLine);
-                }
-            }
-        } catch (IOException e) {
-            //log the exception
-        } finally {
-            if (reader != null) {
-                try {
-                    reader.close();
-                } catch (IOException e) {
-                    //log the exception
-                }
-            }
+    @Override
+    public void finishDownloading() {
+        mDownloading = false;
+        if (mNetworkFragment != null) {
+            mNetworkFragment.cancelDownload();
         }
-        return text.get(new Random().nextInt(text.size()));
+    }
+
+    private void startDownload() {
+        if (!mDownloading && mNetworkFragment != null) {
+            // Execute the async download.
+            mNetworkFragment.startDownload();
+            mDownloading = true;
+        }
     }
 
 
@@ -101,5 +89,48 @@ public class MainActivity extends AppCompatActivity {
         // Add the following line to unregister the Sensor Manager onPause
         mSensorManager.unregisterListener(mShakeDetector);
         super.onPause();
+    }
+
+    @Override
+    public void updateFromDownload(String result) {
+        if (result != null) {
+            Intent intent = new Intent(this, DisplayMessageActivity.class);
+            intent.putExtra(EXTRA_MESSAGE, result);
+            startActivity(intent);
+        } else {
+            Intent intent = new Intent(this, DisplayMessageActivity.class);
+            intent.putExtra(EXTRA_MESSAGE, "FAILED TO GET RESULT");
+            startActivity(intent);
+        }
+    }
+
+    @Override
+    public NetworkInfo getActiveNetworkInfo() {
+        ConnectivityManager connectivityManager =
+                (ConnectivityManager) getSystemService(Context.CONNECTIVITY_SERVICE);
+        NetworkInfo networkInfo = connectivityManager.getActiveNetworkInfo();
+        return networkInfo;
+    }
+
+    @Override
+    public void onProgressUpdate(int progressCode, int percentComplete) {
+        switch(progressCode) {
+            // You can add UI behavior for progress updates here.
+            case Progress.ERROR:
+
+                break;
+            case Progress.CONNECT_SUCCESS:
+
+                break;
+            case Progress.GET_INPUT_STREAM_SUCCESS:
+
+                break;
+            case Progress.PROCESS_INPUT_STREAM_IN_PROGRESS:
+
+                break;
+            case Progress.PROCESS_INPUT_STREAM_SUCCESS:
+
+                break;
+        }
     }
 }

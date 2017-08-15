@@ -3,4 +3,8 @@
     <string name="edit_message">Enter your prayer!</string>
     <string name="shake_message">Now Shake For Jesus!</string>
 
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="send_to">Send to</string>
+
 </resources>
